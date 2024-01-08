@@ -4,13 +4,13 @@
   "description": "Language support for Groovy",
   "version": "0.0.0",
   "publisher": "publisher",
-  "homepage": "https://github.com/prominic/groovy-language-server",
+  "homepage": "https://github.com/xiaoweishi/groovy-language-server",
   "repository": {
     "type": "git",
-    "url": "https://github.com/prominic/groovy-language-server.git"
+    "url": "https://github.com/xiaoweishi/groovy-language-server.git"
   },
   "bugs": {
-    "url": "https://github.com/prominic/groovy-language-server/issues"
+    "url": "https://github.com/xiaoweishi/groovy-language-server/issues"
   },
   "license": "Apache-2.0",
   "private": true,
@@ -19,22 +19,14 @@
   ],
   "keywords": [
     "Groovy",
-    "Grails"
+    "Jenkins",
+    "Jenkinsfile",
+    "IntelliSense",
+    "DevOps"
   ],
   "main": "extension",
   "engines": {
     "vscode": "^1.73.1"
-  },
-  "devDependencies": {
-    "@types/node": "^16.18.6",
-    "@types/vscode": "^1.73.1",
-    "ts-loader": "^9.4.2",
-    "typescript": "^4.9.3",
-    "vsce": "^2.15.0",
-    "vscode-jsonrpc": "^8.0.2",
-    "vscode-languageclient": "^8.0.2",
-    "webpack": "^5.76.0",
-    "webpack-cli": "^5.0.1"
   },
   "activationEvents": [
     "onLanguage:groovy",
@@ -57,12 +49,82 @@
         "command": "groovy.restartServer",
         "title": "Restart Groovy language server",
         "category": "Groovy"
+      },
+      {
+        "command": "groovy.runGroovyFile",
+        "title": "Run Groovy",
+        "icon": "$(play)"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "groovy.runGroovyFile",
+          "when": "editorLangId == groovy && resourceExtname == .groovy",
+          "group": "groovydebug@1"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "description": "Groovy configuration",
       "properties": {
+        "groovy.classpath": {
+					"type": "array",
+					"default": null,
+					"description": "Specifies additional entries to add to the classpath. May contain both folders and individual .jar files.",
+					"items": {
+						"type": "string"
+					}
+				},
+				"groovy.home": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the folder path to the Groovy SDK."
+				},
+				"groovy.http.proxyHost": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the hostname to the HTTP proxy."
+				},
+				"groovy.http.proxyPort": {
+					"type": [
+						"number",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the port to the HTTP proxy."
+				},
+				"groovy.https.proxyHost": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the hostname to the HTTPS proxy."
+				},
+				"groovy.https.proxyPort": {
+					"type": [
+						"number",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the port to the HTTPS proxy."
+				},
+				"groovy.jar": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies the folder path to the Groovy SDK."
+				},
         "groovy.java.home": {
           "type": [
             "string",
@@ -71,15 +133,39 @@
           "default": null,
           "description": "Specifies the folder path to the JDK. Use this setting if the extension cannot find Java automatically."
         },
-        "groovy.classpath": {
-          "type": "array",
-          "default": null,
-          "description": "Specifies additional entries to add to the classpath. May contain both folders and individual .jar files.",
-          "items": {
-            "type": "string"
-          }
-        }
+        "groovy.targetDirectory": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "Specifies additional entries to be analyzed for self classpath."
+				},
+				"groovy.ignoredDirectory": {
+					"type": "array",
+					"default": null,
+					"description": "Specifies additional entries to ignore for self classpath.",
+					"items": {
+						"type": "string"
+					}
+				}
       }
     }
-  }
+  },
+  "dependencies": {
+		"vscode-extension-telemetry-wrapper": "^0.13.3",
+		"vscode-languageclient": "7.0.0"
+	},
+	"devDependencies": {
+    "@types/node": "^16.18.6",
+    "@types/vscode": "^1.73.1",
+    "ts-loader": "^9.4.2",
+    "typescript": "^4.9.3",
+    "vsce": "^2.15.0",
+    "vscode-jsonrpc": "^8.0.2",
+    "vscode-extension-telemetry-wrapper": "^0.13.3",
+    "vscode-languageclient": "7.0.0",
+    "webpack": "^5.76.0",
+    "webpack-cli": "^5.0.1"
+	}
 }

@@ -25,6 +25,7 @@ import {
   LanguageClientOptions,
   Executable,
 } from "vscode-languageclient/node";
+import { instrumentOperationAsVsCodeCommand } from "vscode-extension-telemetry-wrapper"
 
 const MISSING_JAVA_ERROR =
   "Could not locate valid JDK. To configure JDK manually, use the groovy.java.home setting.";
@@ -38,10 +39,14 @@ const LABEL_RELOAD_WINDOW = "Reload Window";
 let extensionContext: vscode.ExtensionContext | null = null;
 let languageClient: LanguageClient | null = null;
 let javaPath: string | null = null;
+let channel = vscode.window.createOutputChannel('Groovy Client');
 
 function onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
+  channel.appendLine('The configuration has changed.');
   if (event.affectsConfiguration("groovy.java.home")) {
+    channel.appendLine('The setting "groovy.java.home" has been updated.');
     javaPath = findJava();
+    channel.appendLine(`The new java path is now ${javaPath}.`);
     //we're going to try to kill the language server and then restart
     //it with the new settings
     restartLanguageServer();
@@ -49,6 +54,7 @@ function onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
 }
 
 function restartLanguageServer() {
+  channel.appendLine('Restarting the Language Server.');
   if (!languageClient) {
     startLanguageServer();
     return;
@@ -74,6 +80,7 @@ function restartLanguageServer() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  channel.appendLine('The extension has been activated.');
   extensionContext = context;
   javaPath = findJava();
   vscode.workspace.onDidChangeConfiguration(onDidChangeConfiguration);
@@ -84,17 +91,82 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   startLanguageServer();
+
+  context.subscriptions.push(instrumentOperationAsVsCodeCommand("groovy.runGroovyFile", async (uri: vscode.Uri) => {
+    await runGroovyFile(uri, true);
+  }));
 }
 
 export function deactivate() {
+  channel.appendLine('The extension is deactivating.');
   extensionContext = null;
 }
 
+function runGroovyFile(uri: vscode.Uri, noDebug: boolean) {
+  let executeCommand: string = javaPath + ' ';
+  let launchConfiguration: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration("groovy");
+  let groovyHomePath: string = launchConfiguration ? (launchConfiguration.home ? launchConfiguration.home : '') : '';
+  if (groovyHomePath.length > 0) {
+    executeCommand += '-Dgroovy.home=' + groovyHomePath + ' ';
+  }
+  let groovyProxyHttpHostname: string = launchConfiguration ? (launchConfiguration.http.proxyHost ? launchConfiguration.http.proxyHost : '') : '';
+  if (groovyProxyHttpHostname.length > 0) {
+    executeCommand += '-Dhttp.proxyHost=' + groovyProxyHttpHostname + ' ';
+  }
+  let groovyProxyHttpPort: number = launchConfiguration ? (launchConfiguration.http.proxyPort ? launchConfiguration.http.proxyPort : -1) : -1;
+  if (groovyProxyHttpPort != -1) {
+    executeCommand += '-Dhttp.proxyPort=' + groovyProxyHttpPort + ' ';
+  }
+  let groovyProxyHttpsHostname: string = launchConfiguration ? (launchConfiguration.https.proxyHost ? launchConfiguration.https.proxyHost : '') : '';;
+  if (groovyProxyHttpsHostname.length > 0) {
+    executeCommand += '-Dhttps.proxyHost=' + groovyProxyHttpsHostname + ' ';
+  }
+  let groovyProxyHttpsPort: number = launchConfiguration ? (launchConfiguration.https.proxyPort ? launchConfiguration.https.proxyPort : -1) : -1;
+  if (groovyProxyHttpsPort != -1) {
+    executeCommand += '-Dhttps.proxyPort=' + groovyProxyHttpsPort + ' ';
+  }
+  executeCommand += '-Dfile.encoding=UTF-8 ';
+  let groovyJarFile: string = launchConfiguration ? (launchConfiguration.jar ? launchConfiguration.jar : '') : '';
+  if (groovyJarFile.length > 0) {
+    executeCommand += '-classpath ' + groovyJarFile + ' ';
+  }
+  executeCommand += 'org.codehaus.groovy.tools.GroovyStarter --main groovy.ui.GroovyMain ';
+  let classpathsArray: vscode.DebugConfiguration[] = launchConfiguration ? (launchConfiguration.classpath ? launchConfiguration.classpath : []) : [];
+  let classpathsString: string = classpathsArray.join(':');
+  if (classpathsString.length > 0) {
+    executeCommand += '--classpath .:' + classpathsString + ' ';
+  }
+  // if (vscode.workspace.workspaceFolders !== undefined) {
+  //   executeCommand += '--classpath .:' +
+  //     vscode.workspace.workspaceFolders[0].uri.path +
+  //     '/build/classes ';
+  // }
+  executeCommand += '--encoding=UTF-8 ' + uri.path;
+  let groovyTerminals: vscode.Terminal[] = vscode.window.terminals.filter(terminal => {
+    if (terminal.name && terminal.name == 'Groovy') {
+      return true
+    }
+  })
+  if (vscode.window.terminals.length == 0 || groovyTerminals.length == 0) {
+    groovyTerminals.push(vscode.window.createTerminal('Groovy'));
+  }
+  if (groovyTerminals.length > 1) {
+    for (let i = 1; i < groovyTerminals.length; i++) {
+      groovyTerminals[i].sendText("exit");
+    }
+  }
+  groovyTerminals[0].show();
+  setTimeout(function () {
+    groovyTerminals[0].sendText(executeCommand);
+  }, 0.5 * 1000);
+}
+
 function startLanguageServer() {
+  channel.appendLine('Starting the language server.');
   vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window },
     (progress) => {
-      return new Promise<void>(async (resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         if (!extensionContext) {
           //something very bad happened!
           resolve();
@@ -153,14 +225,12 @@ function startLanguageServer() {
           executable,
           clientOptions
         );
-        try {
-          await languageClient.start();
-        } catch (e) {
+        languageClient.onReady().then(resolve, (reason: any) => {
           resolve();
           vscode.window.showErrorMessage(STARTUP_ERROR);
-          return;
-        }
-        resolve();
+        });
+        languageClient.start();
+        channel.appendLine('The extension is running.');
       });
     }
   );
