@@ -105,7 +105,7 @@ public class CompilationUnitFactory implements ICompilationUnitFactory {
 		}
 
 		if (workspaceRoot != null) {
-			aaddDirectoryToCompilationUnit(workspaceRoot, ignoredDirectory, compilationUnit, fileContentsTracker, changedUris);
+			addDirectoryToCompilationUnit(workspaceRoot, ignoredDirectory, compilationUnit, fileContentsTracker, changedUris);
 		}
 		else {
 			final Set<URI> urisToAdd = changedUris;
